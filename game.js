@@ -1,7 +1,9 @@
 (() => {
   const ROUND_SECONDS = 30;
   const BEST_KEY = "slidescore-best";
-  const COMBO_WINDOW_MS = 520;
+  const BPM = 150;
+  const BEAT_MS = 60000 / BPM;
+  const HIT_WINDOW_MS = 55;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
@@ -46,6 +48,10 @@
     pointerId: null,
     origin: { x: 0, y: 0 },
     expected: null,
+    lastHitBeat: -1,
+    lastAttemptBeat: -1,
+    lastClickBeat: -1,
+    lastClosedBeat: -1,
     blade: [],
     pops: [],
     sparks: [],
@@ -82,49 +88,21 @@
     return state.audio;
   };
 
-  let lastWhoosh = 0;
-  const whoosh = (speed) => {
+  const metronome = () => {
     const audio = ensureAudio();
     if (!audio) return;
-    const t = performance.now();
-    if (t - lastWhoosh < 90) return;
-    lastWhoosh = t;
     const now = audio.currentTime;
-    const dur = 0.12;
-    const bufferSize = Math.floor(audio.sampleRate * dur);
-    const buffer = audio.createBuffer(1, bufferSize, audio.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i += 1) {
-      const t = i / bufferSize;
-      data[i] = (Math.random() * 2 - 1) * (1 - t) * 0.55;
-    }
-    const noise = audio.createBufferSource();
-    noise.buffer = buffer;
-    const filter = audio.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 900 + speed * 8000;
-    filter.Q.value = 0.7;
-    const gain = audio.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(audio.destination);
-    noise.start(now);
-    noise.stop(now + dur);
-
     const osc = audio.createOscillator();
-    const oscGain = audio.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(420, now);
-    osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
-    oscGain.gain.setValueAtTime(0.05, now);
-    oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
-    osc.connect(oscGain);
-    oscGain.connect(audio.destination);
+    const gain = audio.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(660, now);
+    osc.frequency.exponentialRampToValueAtTime(220, now + 0.05);
+    gain.gain.setValueAtTime(0.07, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+    osc.connect(gain);
+    gain.connect(audio.destination);
     osc.start(now);
-    osc.stop(now + 0.1);
+    osc.stop(now + 0.06);
   };
 
   const ding = () => {
@@ -221,19 +199,37 @@
     comboEl.classList.remove("pop");
     void comboEl.offsetWidth;
     comboEl.classList.add("pop");
-    clearTimeout(comboTimer);
-    comboTimer = setTimeout(hideCombo, COMBO_WINDOW_MS);
+  };
+
+  const beatAt = (now) => {
+    const elapsed = now - state.startedAt;
+    const beatIndex = Math.round(elapsed / BEAT_MS);
+    const beatTime = state.startedAt + beatIndex * BEAT_MS;
+    return { beatIndex, offset: Math.abs(now - beatTime) };
+  };
+
+  const pulseBeat = () => {
+    mascot.classList.remove("on-beat");
+    void mascot.offsetWidth;
+    mascot.classList.add("on-beat");
+  };
+
+  const tryHit = (pos, dir) => {
+    const now = performance.now();
+    const { beatIndex, offset } = beatAt(now);
+    if (beatIndex === state.lastAttemptBeat) return;
+    state.lastAttemptBeat = beatIndex;
+    if (offset > HIT_WINDOW_MS) {
+      hideCombo();
+      return;
+    }
+    state.lastHitBeat = beatIndex;
+    award(pos, dir);
   };
 
   const award = (pos, dir) => {
-    const now = performance.now();
-    if (now - state.lastScoreAt <= COMBO_WINDOW_MS) {
-      state.combo += 1;
-    } else {
-      state.combo = 1;
-    }
+    state.combo += 1;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
-    state.lastScoreAt = now;
     state.score += 1;
     state.shake = Math.min(10, 4 + state.combo * 0.35);
     scoreEl.textContent = String(state.score);
@@ -256,7 +252,7 @@
 
     if (!state.expected) {
       if (dist >= need) {
-        award(pos, dir);
+        tryHit(pos, dir);
         state.expected = neg(dir);
         state.origin = { ...pos };
       }
@@ -265,7 +261,7 @@
 
     const alignment = dot(dir, state.expected);
     if (alignment > 0.28 && dist >= need) {
-      award(pos, dir);
+      tryHit(pos, dir);
       state.expected = neg(dir);
       state.origin = { ...pos };
       return;
@@ -282,6 +278,10 @@
     state.combo = 0;
     state.maxCombo = 0;
     state.lastScoreAt = 0;
+    state.lastHitBeat = -1;
+    state.lastAttemptBeat = -1;
+    state.lastClickBeat = -1;
+    state.lastClosedBeat = -1;
     state.remaining = ROUND_SECONDS;
     state.startedAt = performance.now();
     state.pops = [];
@@ -334,11 +334,6 @@
     event.preventDefault();
     const pos = pointerPos(event);
     addBlade(pos);
-    const last = state.blade[state.blade.length - 2];
-    if (last) {
-      const speed = Math.hypot(pos.x - last.x, pos.y - last.y);
-      if (speed > 18) whoosh(Math.min(1, speed / 80));
-    }
     onStrokeMove(pos);
   };
 
@@ -346,7 +341,6 @@
     if (event.pointerId !== state.pointerId) return;
     state.pointerId = null;
     state.expected = null;
-    hideCombo();
   };
 
   const drawStage = () => {
@@ -428,6 +422,18 @@
         timeEl.textContent = String(state.remaining);
       }
       if (left <= 0) endRound();
+
+      const beatIndex = Math.floor((now - state.startedAt) / BEAT_MS);
+      if (beatIndex > state.lastClickBeat) {
+        metronome();
+        pulseBeat();
+        state.lastClickBeat = beatIndex;
+      }
+      const closedBeat = Math.floor((now - state.startedAt - HIT_WINDOW_MS) / BEAT_MS);
+      if (closedBeat >= 0 && closedBeat > state.lastClosedBeat) {
+        if (state.combo > 0 && state.lastHitBeat < closedBeat) hideCombo();
+        state.lastClosedBeat = closedBeat;
+      }
     }
 
     drawStage();
