@@ -1,0 +1,16 @@
+{
+  "name": "SlideScore",
+  "short_name": "SlideScore",
+  "description": "Tung Tung Tung Sahur ลากไป SIX ลากกลับ SEVEN",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1a9bff",
+  "theme_color": "#1a9bff",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

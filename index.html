@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#1a9bff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Slide 67 — Tung Tung Tung Sahur</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="preload" as="image" href="assets/mascot-idle.png?v=9" />
+    <link rel="preload" as="image" href="assets/mascot-six.png?v=9" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@600;700&family=Prompt:wght@600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-screen="start">
+    <canvas id="game"></canvas>
+
+    <div id="mascot" class="mascot pose-idle" aria-hidden="true">
+      <div class="mascot-flip">
+        <img id="mascot-img" class="mascot-img" src="assets/mascot-idle.png?v=9" alt="Tung Tung Tung Sahur" />
+      </div>
+    </div>
+
+    <div id="hud" class="hud hidden" aria-live="polite">
+      <div class="hud-top">
+        <div class="sticker time-sticker">
+          <span class="hud-label">เวลา</span>
+          <span id="time" class="hud-value">30</span>
+        </div>
+        <div class="sticker score-sticker">
+          <span class="hud-label">คะแนน</span>
+          <span id="score" class="hud-score">0</span>
+        </div>
+        <div class="sticker combo-sticker">
+          <span class="hud-label">High Score</span>
+          <span id="best-hud" class="hud-value">0</span>
+        </div>
+      </div>
+      <p id="combo" class="combo-line hidden">Combo x 0</p>
+    </div>
+
+    <section id="start" class="panel">
+      <div class="panel-top">
+        <h1>SIX <span>SEVEN</span></h1>
+      </div>
+      <div class="panel-bottom">
+        <button id="play-btn" type="button" class="btn primary">Start</button>
+        <p id="best-start" class="best">สถิติสูงสุด — 0</p>
+      </div>
+    </section>
+
+    <section id="result" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <div class="modal-card">
+        <h2 id="result-title">คะแนน</h2>
+        <p id="final-score" class="final-score">0</p>
+        <p id="result-detail" class="tagline">คอมโบสูงสุด 0</p>
+        <p id="new-best" class="new-best hidden">สถิติใหม่ 🔥67</p>
+        <button id="again-btn" type="button" class="btn primary">Again</button>
+        <p id="best-result" class="best">สถิติสูงสุด — 0</p>
+      </div>
+    </section>
+
+    <script src="game.js"></script>
+  </body>
+</html>
