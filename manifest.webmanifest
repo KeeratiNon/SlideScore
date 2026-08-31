@@ -1,16 +1,17 @@
 {
   "name": "SlideScore",
   "short_name": "SlideScore",
-  "description": "Tung Tung Tung Sahur ลากไป SIX ลากกลับ SEVEN",
+  "description": "SlideScore — ปัดตามจังหวะ",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#1a9bff",
-  "theme_color": "#1a9bff",
+  "background_color": "#84d6fd",
+  "theme_color": "#84d6fd",
   "icons": [
     {
-      "src": "icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
