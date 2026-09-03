@@ -5,8 +5,9 @@
   const BEAT_MS = 60000 / BPM;
   const HIT_WINDOW_MS = 120;
   const BEAT_OFFSET_MS = 80;
-  const COUNTDOWN_MS = 1000;
+  const COUNTDOWN_MS = 1100;
   const COUNTDOWN_STEPS = [3, 2, 1];
+  const SCORE_DELAY_MS = COUNTDOWN_STEPS.length * COUNTDOWN_MS;
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
@@ -48,13 +49,21 @@
     sparks: [],
     audio: null,
     countdownTimer: 0,
+    scoreFromMs: 0,
   };
+
+  const scoreStartMs = () => (state.scoreFromMs > 0 ? state.scoreFromMs : SCORE_DELAY_MS);
 
   const maxHits = () => {
     const durationMs = roundDuration() * 1000;
-    let count = 0;
-    while (BEAT_OFFSET_MS + count * BEAT_MS < durationMs) count += 1;
-    return Math.max(1, count);
+    const startMs = scoreStartMs();
+    let beats = 0;
+    for (let i = 0; ; i += 1) {
+      const t = BEAT_OFFSET_MS + i * BEAT_MS;
+      if (t >= durationMs) break;
+      if (t >= startMs) beats += 1;
+    }
+    return Math.max(1, beats);
   };
 
   const percentOf = (hits) => (hits / maxHits()) * 100;
@@ -72,11 +81,6 @@
     bestStartEl.textContent = `สถิติสูงสุด — ${label}`;
     bestResultEl.textContent = `สถิติสูงสุด — ${label}`;
     bestHudEl.textContent = label;
-  };
-
-  const showScore = () => {
-    const pct = percentOf(state.score);
-    if (pct > readBest()) bestHudEl.textContent = formatBest(pct);
   };
 
   const threshold = () => Math.max(56, Math.min(state.w, state.h) * 0.16);
@@ -227,9 +231,10 @@
   };
 
   const tryHit = (pos, dir) => {
-    if (!state.startedAt) return;
+    if (state.mode !== "play" || !state.startedAt) return;
     const { beatIndex, offset } = beatAt(performance.now());
     if (beatIndex < 0 || beatIndex === state.lastAttemptBeat) return;
+    if (BEAT_OFFSET_MS + beatIndex * BEAT_MS < scoreStartMs()) return;
     state.lastAttemptBeat = beatIndex;
     if (offset > HIT_WINDOW_MS) {
       hideCombo();
@@ -243,7 +248,6 @@
     state.combo += 1;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     state.score += 1;
-    showScore();
     showCombo(state.combo);
     spawnSparks(pos, dir);
     ding();
@@ -298,11 +302,8 @@
     if (state.mode !== "countdown") return;
     countdownEl.classList.add("hidden");
     state.mode = "play";
-    state.startedAt = performance.now();
-    state.expected = null;
-    mascotVideo.loop = false;
-    mascotVideo.muted = false;
-    mascotVideo.play().catch(() => {});
+    state.scoreFromMs = performance.now() - state.startedAt;
+    setScreen("play");
   };
 
   const beginCountdown = () => {
@@ -318,6 +319,7 @@
     state.lastClosedBeat = -1;
     state.remaining = -1;
     state.startedAt = 0;
+    state.scoreFromMs = 0;
     state.pops = [];
     state.sparks = [];
     state.blade = [];
@@ -331,12 +333,14 @@
     countdownEl.classList.remove("hidden");
     hud.classList.remove("hidden");
     setScreen("countdown");
-    freezeVideo();
     ensureAudio()?.resume();
+    mascotVideo.loop = false;
+    mascotVideo.muted = false;
+    mascotVideo.currentTime = 0;
+    state.startedAt = performance.now();
     mascotVideo.play().then(() => {
-      if (state.mode !== "countdown") return;
-      mascotVideo.pause();
-      mascotVideo.currentTime = 0;
+      if (state.mode !== "countdown" && state.mode !== "play") return;
+      state.startedAt = performance.now() - (mascotVideo.currentTime || 0) * 1000;
     }).catch(() => {});
 
     let step = 0;
@@ -393,10 +397,6 @@
     event.preventDefault();
     const pos = pointerPos(event);
     addBlade(pos);
-    if (state.mode === "countdown") {
-      state.origin = { ...pos };
-      return;
-    }
     onStrokeMove(pos);
   };
 
@@ -477,18 +477,20 @@
   };
 
   const loop = (now) => {
-    if (state.mode === "play") {
+    if (state.mode === "play" || state.mode === "countdown") {
       const duration = roundDuration();
       const vt = mascotVideo.currentTime || 0;
       const left = Math.max(0, duration - vt);
       showTime(left);
-      if (vt > 0.25 && (mascotVideo.ended || left <= 0)) endRound();
+      if (state.mode === "play" && vt > 0.25 && (mascotVideo.ended || left <= 0)) endRound();
 
-      const t = performance.now() - state.startedAt - BEAT_OFFSET_MS;
-      const closedBeat = Math.floor((t - HIT_WINDOW_MS) / BEAT_MS);
-      if (closedBeat >= 0 && closedBeat > state.lastClosedBeat) {
-        if (state.combo > 0 && state.lastHitBeat < closedBeat) hideCombo();
-        state.lastClosedBeat = closedBeat;
+      if (state.mode === "play") {
+        const t = performance.now() - state.startedAt - BEAT_OFFSET_MS;
+        const closedBeat = Math.floor((t - HIT_WINDOW_MS) / BEAT_MS);
+        if (closedBeat >= 0 && closedBeat > state.lastClosedBeat) {
+          if (state.combo > 0 && state.lastHitBeat < closedBeat) hideCombo();
+          state.lastClosedBeat = closedBeat;
+        }
       }
     }
 
